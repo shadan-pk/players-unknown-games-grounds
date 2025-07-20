@@ -2,7 +2,10 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import { initializeDatabase } from './config/database';
+import { MatchmakingService } from './services/MatchmakingService';
 import authRoutes from './routes/auth';
 import gameRoutes from './routes/games';
 
@@ -10,6 +13,19 @@ import gameRoutes from './routes/games';
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000'
+    ],
+    credentials: true
+  }
+});
+
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001; // Fix: Parse to number
 
 // CORS configuration
@@ -106,8 +122,153 @@ app.get('/api/games/types', async (req: Request, res: Response) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
-// Comment out the game routes import until we fix the files
-// app.use('/api/games', gameRoutes);
+app.use('/api/games', gameRoutes);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log(`Socket connected: ${socket.id}`);
+
+  socket.on('authenticate', (token) => {
+    // For now, just acknowledge the authentication
+    socket.emit('authenticated', { success: true, user: { id: 'user123', username: 'Player' } });
+  });
+
+  // Matchmaking events
+  socket.on('join-queue', async (data) => {
+    console.log('Player joining queue:', data);
+    const { gameType, matchType = 'casual' } = data;
+    
+    try {
+      // Add player to matchmaking queue
+      await MatchmakingService.addToQueue('user123', gameType, matchType);
+      
+      // Get queue status
+      const queueStatus = await MatchmakingService.getQueueStatus(gameType);
+      
+      socket.emit('queue-joined', {
+        gameType,
+        matchType,
+        status: queueStatus,
+        estimatedWaitTime: 30
+      });
+      
+      console.log(`Player user123 added to ${gameType} ${matchType} queue`);
+      
+      // Start checking for matches
+      checkForMatches(gameType, matchType);
+    } catch (error) {
+      console.error('Error joining queue:', error);
+      socket.emit('error', { message: 'Failed to join queue' });
+    }
+  });
+
+  socket.on('leave-queue', async () => {
+    console.log('Player leaving queue');
+    try {
+      await MatchmakingService.removeFromAllQueues('user123');
+      socket.emit('queue-left');
+    } catch (error) {
+      console.error('Error leaving queue:', error);
+    }
+  });
+
+  socket.on('accept-match', () => {
+    console.log('Player accepted match');
+    socket.emit('match-accepted', {
+      sessionId: `session_${Date.now()}`,
+      roomCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      gameType: 'tictactoe',
+      players: [
+        { id: 'user123', username: 'Player 1', elo: 1200 },
+        { id: 'user456', username: 'Player 2', elo: 1250 }
+      ],
+      matchType: 'casual'
+    });
+  });
+
+  socket.on('decline-match', () => {
+    console.log('Player declined match');
+    socket.emit('match-declined');
+  });
+
+  // Game room events
+  socket.on('create-room', (data) => {
+    const { gameType } = data;
+    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const sessionId = `session_${Date.now()}`;
+    
+    socket.emit('room-created', {
+      sessionId,
+      roomCode,
+      gameType,
+      players: [{ id: 'user123', username: 'Player', elo: 1200 }],
+      matchType: 'casual'
+    });
+  });
+
+  socket.on('join-room', (data) => {
+    const { roomCode } = data;
+    
+    socket.emit('room-joined', {
+      sessionId: `session_${Date.now()}`,
+      roomCode,
+      gameType: 'tictactoe',
+      players: [
+        { id: 'user123', username: 'Player 1', elo: 1200 },
+        { id: 'user456', username: 'Player 2', elo: 1250 }
+      ],
+      matchType: 'casual'
+    });
+  });
+
+  socket.on('leave-room', () => {
+    socket.emit('room-left');
+  });
+
+  // Gameplay events
+  socket.on('make-move', (data) => {
+    // Echo the move back for now
+    socket.emit('move-made', {
+      gameState: { currentPlayerIndex: 1 },
+      move: data.move,
+      nextPlayer: { id: 'user456', username: 'Player 2' }
+    });
+  });
+
+  socket.on('forfeit-game', () => {
+    socket.emit('game-ended', {
+      result: { result: 'forfeit', winner: { id: 'user456', username: 'Player 2' } },
+      stats: { duration: 120, totalMoves: 5 }
+    });
+  });
+
+  socket.on('request-rematch', () => {
+    socket.emit('rematch-requested', { playerName: 'Player' });
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`Socket disconnected: ${socket.id}`);
+  });
+});
+
+// Helper function to check for matches
+async function checkForMatches(gameType: string, matchType: 'casual' | 'ranked') {
+  try {
+    // Process the queue to find matches
+    await MatchmakingService.processQueue(gameType, matchType);
+    
+    // Check if any matches were created
+    const queueStatus = await MatchmakingService.getQueueStatus(gameType);
+    console.log(`Queue status for ${gameType} ${matchType}:`, queueStatus);
+    
+    // If there are still players in queue, schedule another check
+    if (queueStatus.playersInQueue > 0) {
+      setTimeout(() => checkForMatches(gameType, matchType), 5000);
+    }
+  } catch (error) {
+    console.error('Error checking for matches:', error);
+  }
+}
 
 // 404 handler
 app.use('*', (req: Request, res: Response) => {
@@ -138,7 +299,7 @@ const startServer = async () => {
   // Initialize database connections
   const dbConnected = await initializeDatabase();
   
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`🚀 PUGG Backend server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔐 Auth routes: http://localhost:${PORT}/api/auth/*`);
@@ -146,6 +307,7 @@ const startServer = async () => {
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 CORS enabled for: localhost:3000, localhost:5173`);
     console.log(`💾 Database: ${dbConnected ? 'Connected' : 'Disconnected (dev mode)'}`);
+    console.log(`🔌 WebSocket server ready`);
   });
 };
 

@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
-import { useAuthStore } from '../stores/authStore';
 
 const GameLobby: React.FC = () => {
   const [roomCode, setRoomCode] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   
-  const { user, logout } = useAuthStore();
   const { 
     currentRoom, 
     gameTypes, 
     isLoadingGameTypes, 
     createRoom, 
     joinRoom, 
-    fetchGameTypes 
+    fetchGameTypes,
+    joinMatchmakingQueue
   } = useGameStore();
 
   useEffect(() => {
@@ -25,13 +24,17 @@ const GameLobby: React.FC = () => {
   }, [gameTypes.length, fetchGameTypes]);
 
   const handleCreateRoom = (gameType: string) => {
-    createRoom(gameType);
+    createRoom(gameType, 'casual');
   };
 
   const handleJoinRoom = () => {
     if (roomCode.trim()) {
       joinRoom(roomCode.trim().toUpperCase());
     }
+  };
+
+  const handleQuickMatch = (gameType: string) => {
+    joinMatchmakingQueue(gameType, 'casual');
   };
 
   // Filter games based on selected filters
@@ -65,7 +68,7 @@ const GameLobby: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
       {/* Header */}
-      <header className="border-b border-slate-700 px-4 py-4">
+      {/* <header className="border-b border-slate-700 px-4 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-white">PUGG</h1>
@@ -78,7 +81,7 @@ const GameLobby: React.FC = () => {
             </button>
           </div>
         </div>
-      </header>
+      </header> */}
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {!currentRoom ? (
@@ -191,12 +194,11 @@ const GameLobby: React.FC = () => {
                   ) : (
                     <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {filteredGameTypes.map((game) => (
-                        <motion.button
+                        <motion.div
                           key={game.id}
-                          onClick={() => handleCreateRoom(game.id)}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          className="p-4 bg-slate-700 hover:bg-slate-600 rounded-lg border border-slate-600 hover:border-blue-500 transition-all text-left group"
+                          className="p-4 bg-slate-700 hover:bg-slate-600 rounded-lg border border-slate-600 hover:border-blue-500 transition-all group"
                         >
                           <div className="flex justify-between items-start mb-2">
                             <div className="flex items-center gap-2">
@@ -216,13 +218,13 @@ const GameLobby: React.FC = () => {
                             {game.description}
                           </p>
                           
-                          <div className="flex justify-between items-center text-xs text-gray-500">
+                          <div className="flex justify-between items-center text-xs text-gray-500 mb-3">
                             <span>{game.min_players}-{game.max_players} players</span>
                             <span>{game.estimated_duration}</span>
                           </div>
                           
                           {game.tags && game.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
+                            <div className="flex flex-wrap gap-1 mb-4">
                               {game.tags.slice(0, 3).map(tag => (
                                 <span
                                   key={tag}
@@ -238,7 +240,23 @@ const GameLobby: React.FC = () => {
                               )}
                             </div>
                           )}
-                        </motion.button>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleQuickMatch(game.id)}
+                              className="flex-1 btn btn-primary py-2 text-sm"
+                            >
+                              Quick Match
+                            </button>
+                            <button
+                              onClick={() => handleCreateRoom(game.id)}
+                              className="flex-1 btn btn-secondary py-2 text-sm"
+                            >
+                              Create Room
+                            </button>
+                          </div>
+                        </motion.div>
                       ))}
                     </div>
                   )}
