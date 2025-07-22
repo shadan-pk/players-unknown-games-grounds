@@ -27,6 +27,8 @@ const io = new Server(server, {
   }
 });
 
+MatchmakingService.init(io);
+
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 
 // Store connected users and their socket info
@@ -279,7 +281,7 @@ io.on('connection', async (socket) => {
           // Try to process queue for matches if we have enough players
           if (updatedStatus.playersInQueue >= 2) {
             console.log(`[MATCHMAKING] Attempting to create match - ${updatedStatus.playersInQueue} players in queue`);
-            await MatchmakingService.processQueue(io, gameType, matchType);
+            await MatchmakingService.processQueue(gameType, matchType);
           }
         } catch (error) {
           console.error('[SOCKET] Error updating queue status:', error);
@@ -334,13 +336,13 @@ io.on('connection', async (socket) => {
 });
 
 // Periodic cleanup of old queue entries
-setInterval(async () => {
-  try {
-    await MatchmakingService.cleanupQueue();
-  } catch (error) {
-    console.error('[CLEANUP] Error during queue cleanup:', error);
-  }
-}, 60000); // Clean up every minute
+// setInterval(async () => {
+//   try {
+//     await MatchmakingService.cleanupQueue();
+//   } catch (error) {
+//     console.error('[CLEANUP] Error during queue cleanup:', error);
+//   }
+// }, 60000); // Clean up every minute
 
 // 404 handler
 app.use('*', (req: Request, res: Response) => {
