@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { BaseGame, Player } from '../games/BaseGame';
+export type { Player };
 import { TicTacToeGame } from '../games/tictactoe/TicTacToeGame';
 
 export class GameRoom {
@@ -22,7 +23,9 @@ export class GameRoom {
     // Add creator as first player
     this.players.set(creatorId, {
       id: creatorId,
-      username: creatorUsername
+      username: creatorUsername,
+      elo: 1000,         // or fetch/set the correct ELO
+      isConnected: true
     });
   }
 
@@ -41,7 +44,9 @@ export class GameRoom {
     this.players.set(userId, {
       id: userId,
       username,
-      socketId
+      socketId,
+      elo: 1000,         // or fetch/set the correct ELO
+      isConnected: true
     });
 
     return true;
@@ -66,7 +71,7 @@ export class GameRoom {
     
     switch (this.gameType) {
       case 'tictactoe':
-        this.game = new TicTacToeGame(this.gameType, playersArray);
+        this.game = new TicTacToeGame(this.id, this.gameType, playersArray);
         break;
       default:
         throw new Error(`Unsupported game type: ${this.gameType}`);
@@ -85,7 +90,7 @@ export class GameRoom {
     
     const result = this.game.makeMove(userId, move);
     
-    if (result.gameEnd?.isFinished) {
+    if (result) {
       this.status = 'finished';
     }
 

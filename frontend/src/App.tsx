@@ -156,11 +156,9 @@ function App() {
               <Route 
                 path="/game" 
                 element={
-                  currentRoom?.status === 'playing' ? (
-                    <GameArea />
-                  ) : (
-                    <Navigate to="/" replace />
-                  )
+                  currentRoom && (currentRoom.status === 'waiting' || currentRoom.status === 'playing')
+                    ? <GameArea />
+                    : <Navigate to="/" replace />
                 } 
               />
               

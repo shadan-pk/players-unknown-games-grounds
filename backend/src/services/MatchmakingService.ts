@@ -155,12 +155,35 @@ export class MatchmakingService {
             this.io.to(socketId).emit('match-accepted', payload);
           }
         }
+        // Step 2.5: Emit game-started with initial game state
+        // Randomly select starting player
+        const playerIds = match.map(p => p.user_id);
+        const startingPlayerId = playerIds[Math.floor(Math.random() * playerIds.length)];
+        const initialGameState = {
+          board: Array(9).fill(null), // for TicTacToe
+          players: match.map(p => ({ id: p.user_id, username: p.username, elo: p.elo_rating })),
+          currentPlayer: startingPlayerId,
+          isFinished: false,
+          winner: null,
+          gameType,
+          moveCount: 0,
+        };
+        for (const player of match) {
+          const socketId = await redis.get(`socket:${player.user_id}`);
+          if (socketId && this.io) {
+            this.io.to(socketId).emit('game-started', { gameState: initialGameState });
+          }
+        }
         
         // Step 3 (THE FIX): After all notifications, remove players from the queue
         console.log(`[MATCHMAKING] Removing matched players from queue for match ${matchResult.room_code}`);
         for (const player of match) {
           await this.removeFromAllQueues(player.user_id);
         }
+        this.activeMatches.set(matchResult.session_id, {
+          ...matchResult,
+          status: 'playing'
+        });
       }
 
       const remainingPlayers = await this.getQueuedPlayers(gameType, matchType);

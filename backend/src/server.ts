@@ -9,6 +9,7 @@ import { initializeDatabase, pool, redis } from './config/database';
 import { MatchmakingService } from './services/MatchmakingService';
 import authRoutes from './routes/auth';
 import gameRoutes from './routes/games';
+import type { Player } from './services/GameRoom';
 
 // Load environment variables
 dotenv.config();
@@ -310,6 +311,41 @@ io.on('connection', async (socket) => {
       }
     } catch (error) {
       console.error('[SOCKET] Error leaving queue:', error);
+    }
+  });
+
+  socket.on('leave-room', async ({ sessionId }) => {
+    // Find the match/session
+    const match = MatchmakingService['activeMatches'].get(sessionId);
+    if (!match) return;
+
+    // Remove the leaving player
+    match.players = match.players.filter((p: Player) => p.id !== socket.data.userId);
+
+    // If only one player remains, end the game and assign win
+    if (match.players.length === 1 && match.status === 'playing') {
+      match.status = 'finished';
+      const winner = match.players[0];
+      const winnerSocketId = await redis.get(`socket:${winner.user_id}`);
+      const loserSocketId = socket.id;
+
+      // Emit game-ended to winner
+      if (winnerSocketId) {
+        io.to(winnerSocketId).emit('game-ended', {
+          result: { winner, loser: { id: socket.data.userId }, result: 'win-by-forfeit' },
+          stats: {},
+          achievements: []
+        });
+      }
+      // Emit game-ended to leaver
+      io.to(loserSocketId).emit('game-ended', {
+        result: { winner, loser: { id: socket.data.userId }, result: 'lose-by-forfeit' },
+        stats: {},
+        achievements: []
+      });
+
+      // Remove match from activeMatches
+      MatchmakingService['activeMatches'].delete(sessionId);
     }
   });
 

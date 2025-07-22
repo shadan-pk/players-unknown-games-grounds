@@ -19,9 +19,11 @@ const GameArea: React.FC = () => {
 
   const isMyTurn = useMemo(() => {
     if (!gameState || !user) return false;
-    return gameState.currentPlayer?.id === user.id;
+    return (typeof gameState.currentPlayer === 'string'
+      ? gameState.currentPlayer === user.id
+      : gameState.currentPlayer?.id === user.id);
   }, [gameState, user]);
-
+  
   const handleLeaveRoom = () => {
     leaveRoom();
   };
@@ -45,7 +47,7 @@ const GameArea: React.FC = () => {
             onClick={handleLeaveRoom}
             className="btn btn-outline btn-sm"
           >
-            Leave Game
+            Quit Game
           </button>
         </div>
       </header>

@@ -1,7 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
+// import type { GameState } from '../types';
 import type { Player } from '../types';
+// import type { TicTacToeGameState } from '../types/game';
 
 interface TicTacToeGameState {
   board: (string | null)[];
@@ -50,7 +52,7 @@ const TicTacToeBoard: React.FC<TicTacToeBoardProps> = ({
                 : "It's a draw!")
             : isMyTurn 
               ? "Your turn" 
-              : `${gameState.currentPlayer?.username}'s turn`}
+              : `${gameState.players?.find(p => typeof gameState.currentPlayer === 'string' && p.id === gameState.currentPlayer)?.username || 'Unknown'}'s turn`}
         </div>
         <div className="text-sm text-gray-500">
           You are playing as: <span className={`font-bold ${mySymbol === 'X' ? 'text-blue-400' : 'text-red-400'}`}>{mySymbol}</span>

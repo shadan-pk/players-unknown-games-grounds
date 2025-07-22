@@ -74,7 +74,7 @@ export abstract class BaseGame extends EventEmitter {
   // Start the game
   start(): void {
     if (this.status !== 'waiting') return;
-    
+      
     this.status = 'playing';
     this.startTime = new Date();
     

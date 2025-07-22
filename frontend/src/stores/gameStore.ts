@@ -199,25 +199,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set({ queueStatus: status, estimatedWaitTime: status.estimatedWaitTime });
     });
 
-    // socket.on('match-found', (data) => {
-    //   set({ searchingForMatch: true, currentRoom: { ...data } });
-    //   // navigate('/game'); // if using react-router
-    // });
-
-    // socket.on('match-accepted', (data) => {
-    //   set({ 
-    //     isInQueue: false, 
-    //     queueStatus: null,
-    //     currentRoom: {
-    //       id: data.sessionId,
-    //       code: data.roomCode,
-    //       gameType: data.gameType,
-    //       players: data.players,
-    //       status: 'starting',
-    //       matchType: data.matchType
-    //     }
-    //   });
-    // });
     socket.on('match-found', (data) => {
       console.log('Received match-found event:', data);
       set({ 
@@ -251,11 +232,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           matchType: data.matchType
         }
       });
-      
-      // Navigate to game room
-      // If using react-router:
-      // navigate('/game');
-      
+
       get().addNotification('Match joined! Game starting...');
     });
     
