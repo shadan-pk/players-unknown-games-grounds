@@ -4,17 +4,17 @@ import { Clock, Users, Zap, X, Target, TrendingUp } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 
 const MatchmakingQueue: React.FC = () => {
-  const { 
-    queueStatus, 
-    estimatedWaitTime, 
+  const {
+    queueStatus,
+    estimatedWaitTime,
     leaveMatchmakingQueue,
     searchingForMatch,
     isInQueue,
     currentMatchType,
     userStatistics,
-    addNotification
+    addNotification,
   } = useGameStore();
-  
+
   const [waitTime, setWaitTime] = useState(0);
   const [queueAnimation, setQueueAnimation] = useState(0);
 
@@ -27,13 +27,11 @@ const MatchmakingQueue: React.FC = () => {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
     if (isInQueue && !searchingForMatch) {
       interval = setInterval(() => {
         setWaitTime(prev => prev + 1);
       }, 1000);
     }
-
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -42,13 +40,11 @@ const MatchmakingQueue: React.FC = () => {
   useEffect(() => {
     // Animate queue count changes
     let animationInterval: NodeJS.Timeout;
-    
     if (typeof queueStatus?.playersInQueue === 'number' && queueStatus.playersInQueue > 0) {
       animationInterval = setInterval(() => {
         setQueueAnimation(prev => (prev + 1) % 3);
       }, 500);
     }
-
     return () => {
       if (animationInterval) clearInterval(animationInterval);
     };
@@ -70,13 +66,10 @@ const MatchmakingQueue: React.FC = () => {
     if (searchingForMatch) {
       return 'Match found! Preparing game...';
     }
-    
     if (!queueStatus) {
       return 'Connecting to matchmaking...';
     }
-
     const { playersInQueue } = queueStatus;
-    
     if (playersInQueue === 0) {
       return 'Waiting for players to join...';
     } else if (playersInQueue === 1) {
@@ -84,13 +77,11 @@ const MatchmakingQueue: React.FC = () => {
     } else if (playersInQueue >= 2) {
       return 'Match will be created shortly...';
     }
-    
     return `Searching for ${queueStatus.gameType} opponents...`;
   };
 
   const getQueuePriority = () => {
     if (!queueStatus || !waitTime) return 'Standard';
-    
     if (waitTime > 120) return 'High Priority'; // 2+ minutes
     if (waitTime > 60) return 'Medium Priority'; // 1+ minute
     return 'Standard';
@@ -100,11 +91,9 @@ const MatchmakingQueue: React.FC = () => {
     if (currentMatchType === 'casual') {
       return 'Any skill level';
     }
-    
     const userElo = userStatistics?.eloRating || 1000;
     const expansion = Math.floor(waitTime / 30) * 50; // Expand by 50 every 30s
     const range = 100 + expansion;
-    
     return `${Math.max(500, userElo - range)} - ${userElo + range} ELO`;
   };
 
@@ -161,7 +150,7 @@ const MatchmakingQueue: React.FC = () => {
             <div className="relative mb-4">
               <motion.div
                 animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                 className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"
               />
               {typeof queueStatus?.playersInQueue === 'number' && queueStatus.playersInQueue > 0 && (
@@ -175,11 +164,9 @@ const MatchmakingQueue: React.FC = () => {
               )}
             </div>
           )}
-          
-          <p className="text-gray-300 mb-2">
-            {getQueueStatusText()}
-          </p>
-          
+
+          <p className="text-gray-300 mb-2">{getQueueStatusText()}</p>
+
           {waitTime > 30 && !searchingForMatch && (
             <p className="text-yellow-400 text-sm">
               Still searching... Expanding skill range for faster matching
@@ -208,18 +195,15 @@ const MatchmakingQueue: React.FC = () => {
                   )}
                 </div>
               </div>
-              
               <div className="bg-slate-700/50 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Clock className="w-4 h-4 text-green-400" />
                   <span className="text-xs text-gray-400">Your Wait Time</span>
                 </div>
-                <div className="text-xl font-bold text-white">
-                  {formatTime(waitTime)}
-                </div>
+                <div className="text-xl font-bold text-white">{formatTime(waitTime)}</div>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 text-gray-400">
@@ -230,7 +214,7 @@ const MatchmakingQueue: React.FC = () => {
                   {formatEstimatedTime(estimatedWaitTime)}
                 </span>
               </div>
-              
+
               {currentMatchType === 'ranked' && (
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2 text-gray-400">
@@ -242,17 +226,21 @@ const MatchmakingQueue: React.FC = () => {
                   </span>
                 </div>
               )}
-              
+
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 text-gray-400">
                   <Target className="w-4 h-4" />
                   <span>Queue Priority</span>
                 </div>
-                <span className={`font-medium text-xs ${
-                  getQueuePriority() === 'High Priority' ? 'text-orange-400' :
-                  getQueuePriority() === 'Medium Priority' ? 'text-yellow-400' :
-                  'text-gray-400'
-                }`}>
+                <span
+                  className={`font-medium text-xs ${
+                    getQueuePriority() === 'High Priority'
+                      ? 'text-orange-400'
+                      : getQueuePriority() === 'Medium Priority'
+                      ? 'text-yellow-400'
+                      : 'text-gray-400'
+                  }`}
+                >
                   {getQueuePriority()}
                 </span>
               </div>
@@ -272,59 +260,41 @@ const MatchmakingQueue: React.FC = () => {
         {searchingForMatch && (
           <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4 mb-6">
             <div className="text-center">
-              <h3 className="text-green-400 font-bold mb-2">Ready to Play!</h3>
-              <p className="text-green-300 text-sm">
-                Match found with a suitable opponent
-              </p>
+              <h3 className="text-green-400 font-bold mb-2">Match found!</h3>
+              <p className="text-green-300 text-sm">Preparing your game, please wait...</p>
             </div>
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-3">
-          {searchingForMatch ? (
-            <>
-              <button
-                onClick={() => {
-                  // Handle accept match
-                  addNotification('Joining match...');
-                }}
-                className="flex-1 btn btn-primary font-bold"
-              >
-                Join Match
-              </button>
-              <button
-                onClick={() => {
-                  leaveMatchmakingQueue();
-                  addNotification('Match declined');
-                }}
-                className="flex-1 btn btn-secondary"
-              >
-                Decline
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => {
-                leaveMatchmakingQueue();
-                addNotification('Left matchmaking queue');
-              }}
-              className="flex-1 btn btn-secondary"
-            >
-              <X className="w-4 h-4 mr-2" />
-              Cancel Search
-            </button>
-          )}
-        </div>
+        {/* --- FIX: Remove accept/decline actions, just show loading spinner if searchingForMatch --- */}
+        {searchingForMatch ? (
+          <div className="flex justify-center items-center py-4">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              className="w-10 h-10 border-4 border-green-400 border-t-transparent rounded-full"
+            />
+            <span className="ml-4 text-green-300 font-medium">Joining game...</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              leaveMatchmakingQueue();
+              addNotification('Left matchmaking queue');
+            }}
+            className="w-full flex items-center justify-center btn btn-secondary"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel Search
+          </button>
+        )}
 
         {/* Debug Info (Development Only) */}
         {process.env.NODE_ENV === 'development' && queueStatus && (
           <div className="mt-4 p-3 bg-slate-900 rounded text-xs text-gray-500">
             <details>
               <summary className="cursor-pointer mb-2">Debug Info</summary>
-              <pre className="whitespace-pre-wrap">
-                {JSON.stringify(queueStatus, null, 2)}
-              </pre>
+              <pre className="whitespace-pre-wrap">{JSON.stringify(queueStatus, null, 2)}</pre>
             </details>
           </div>
         )}

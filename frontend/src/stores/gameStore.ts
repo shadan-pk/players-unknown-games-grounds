@@ -53,6 +53,7 @@ interface GameStoreState {
   currentMatchType: 'casual' | 'ranked';
   searchingForMatch: boolean;
   estimatedWaitTime: number;
+  matchData: unknown | null;
   
   // Game Results & Statistics
   gameResult: GameResult | null;
@@ -128,6 +129,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   matchHistory: [],
   ratingHistory: [],
   achievements: [],
+  matchData: null,
   isLoading: false,
   error: null,
   notifications: [],
@@ -143,6 +145,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     socket.on('connect', () => {
       console.log('Connected to server');
+      console.log(`Connected to server with socket ID: ${socket.id}`);
       set({ socket, isConnected: true, error: null });
       
       // Fetch initial data
@@ -176,7 +179,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set({ 
         isInQueue: true, 
         queueStatus: data.status,
-        searchingForMatch: true,
+        searchingForMatch: false, // Only true when match is found!
         estimatedWaitTime: data.estimatedWaitTime
       });
       get().addNotification(`Joined ${data.gameType} ${data.matchType} queue`);
@@ -196,34 +199,74 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set({ queueStatus: status, estimatedWaitTime: status.estimatedWaitTime });
     });
 
-    socket.on('match-found', () => {
-      set({ searchingForMatch: false });
-      get().addNotification(`Match found! Joining game...`);
+    // socket.on('match-found', (data) => {
+    //   set({ searchingForMatch: true, currentRoom: { ...data } });
+    //   // navigate('/game'); // if using react-router
+    // });
+
+    // socket.on('match-accepted', (data) => {
+    //   set({ 
+    //     isInQueue: false, 
+    //     queueStatus: null,
+    //     currentRoom: {
+    //       id: data.sessionId,
+    //       code: data.roomCode,
+    //       gameType: data.gameType,
+    //       players: data.players,
+    //       status: 'starting',
+    //       matchType: data.matchType
+    //     }
+    //   });
+    // });
+    socket.on('match-found', (data) => {
+      console.log('Received match-found event:', data);
+      set({ 
+        searchingForMatch: true, 
+        matchData: data
+      });
+      get().addNotification('Match found! Accept to join.');
       playSound('matchFound');
       
-      // Auto-accept after 3 seconds if no response
+      // Optional: Auto-accept after timeout
       setTimeout(() => {
-        if (get().isInQueue) {
+        const { searchingForMatch } = get();
+        if (searchingForMatch) {
+          get().addNotification('Match auto-accepted');
           get().acceptMatch();
         }
-      }, 3000);
+      }, 30000); // 30 second timeout
     });
-
+    
     socket.on('match-accepted', (data) => {
       set({ 
         isInQueue: false, 
         queueStatus: null,
+        searchingForMatch: false,
         currentRoom: {
           id: data.sessionId,
           code: data.roomCode,
           gameType: data.gameType,
           players: data.players,
-          status: 'starting',
+          status: 'waiting',
           matchType: data.matchType
         }
       });
+      
+      // Navigate to game room
+      // If using react-router:
+      // navigate('/game');
+      
+      get().addNotification('Match joined! Game starting...');
     });
-
+    
+    socket.on('match-declined', () => {
+      set({ 
+        searchingForMatch: false,
+        // Keep in queue to find another match
+        // Or remove from queue if you prefer
+      });
+      get().addNotification('Match declined. Searching for another opponent...');
+    });
     // Game Room Events
     socket.on('room-created', (data) => {
       set({
@@ -280,7 +323,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       set((state) => ({
         currentRoom: state.currentRoom ? {
           ...state.currentRoom,
-          status: 'starting'
+          status: 'waiting'
         } : null
       }));
       get().addNotification('Game starting in 3 seconds...');
@@ -378,6 +421,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         playSound(data.sound);
       }
     });
+
+    socket.on('test-event', (data) => {
+      console.log('Received test-event:', data);
+    });
   },
 
   disconnect: () => {
@@ -392,7 +439,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       gameState: null,
       isInQueue: false,
       queueStatus: null,
-      searchingForMatch: false
+      searchingForMatch: false,
+      matchData: null
     });
   },
 

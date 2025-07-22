@@ -13,6 +13,7 @@ import NotificationSystem from './components/NotificationSystem';
 import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
 import { Toaster } from 'react-hot-toast';
+import GameRoomNavigator from './components/GameRoomNavigator';
 
 function App() {
   const { isAuthenticated, token, user, setAuth } = useAuthStore();
@@ -137,6 +138,7 @@ function App() {
           
           {/* Main Content */}
           <main className="relative">
+            <GameRoomNavigator />
             <Routes>
               {/* Dashboard/Lobby Route */}
               <Route 

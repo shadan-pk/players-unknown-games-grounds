@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { BaseGame, Player } from '../games/BaseGame';
-import { TicTacToeGame } from '../games/TicTacToeGame';
+import { TicTacToeGame } from '../games/tictactoe/TicTacToeGame';
 
 export class GameRoom {
   public id: string;

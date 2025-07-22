@@ -1,4 +1,5 @@
 import { pool, redis } from '../config/database';
+import { Server } from 'socket.io';
 
 export interface QueueEntry {
   id: string;
@@ -61,6 +62,7 @@ export class MatchmakingService {
 
       // Store socket ID in Redis with expiration
       await redis.setEx(`socket:${userId}`, 300, socketId);
+      console.log(`[SOCKET DEBUG] Set socket:${userId} = ${socketId}`);
       
       console.log(`[QUEUE] Successfully added player ${userId} with ELO ${eloRating}`);
       
@@ -73,7 +75,7 @@ export class MatchmakingService {
       const queueKey = `${gameType}:${matchType}`;
       if (!this.queueIntervals.has(queueKey)) {
         const interval = setInterval(() => {
-      this.processQueue(gameType, matchType);
+      this.processQueue(null, gameType, matchType); // Pass null for io as it's not static
         }, 5000); // Check every 5 seconds
         this.queueIntervals.set(queueKey, interval);
         console.log(`[QUEUE] Started matchmaking interval for ${queueKey}`);
@@ -95,8 +97,7 @@ export class MatchmakingService {
         [userId, gameType]
       );
       
-      await redis.del(`socket:${userId}`);
-      
+      // Do NOT delete the socket key here
       console.log(`[QUEUE] Removed ${result.rowCount || 0} entries for player ${userId}`);
     } catch (error) {
       console.error('[QUEUE] Error removing from queue:', error);
@@ -113,8 +114,7 @@ export class MatchmakingService {
         [userId]
       );
       
-      await redis.del(`socket:${userId}`);
-      
+      // Do NOT delete the socket key here
       console.log(`[QUEUE] Removed ${result.rowCount || 0} total queue entries for player ${userId}`);
     } catch (error) {
       console.error('[QUEUE] Error removing from all queues:', error);
@@ -162,7 +162,7 @@ export class MatchmakingService {
   }
 
   // Process queue only when enough players
-  static async processQueue(gameType: string, matchType: 'casual' | 'ranked'): Promise<void> {
+  static async processQueue(io: Server | null, gameType: string, matchType: 'casual' | 'ranked'): Promise<void> {
     try {
       console.log(`[MATCHMAKING] Processing queue for ${gameType} ${matchType}`);
       
@@ -194,14 +194,32 @@ export class MatchmakingService {
       for (const match of matches) {
         const matchResult = await this.createMatch(match, gameType, matchType);
         console.log(`[MATCHMAKING] Match created successfully: ${matchResult.room_code}`);
-        
-        // Notify players about match found
+
+        // Log socket IDs and usernames for all players in the match
         for (const player of match) {
           const socketId = await redis.get(`socket:${player.user_id}`);
-          if (socketId) {
-            this.activeMatches.set(matchResult.session_id, {
-              ...matchResult,
-              socketIds: match.map(p => ({ userId: p.user_id, socketId }))
+          console.log(`[SOCKET DEBUG] Player: ${player.username}, UserID: ${player.user_id}, SocketID: ${socketId}`);
+        }
+
+        for (const player of match) {
+          const socketId = await redis.get(`socket:${player.user_id}`);
+          if (socketId && io) {
+            // Emit match-found
+            io.to(socketId).emit('match-found', {
+              sessionId: matchResult.session_id,
+              roomCode: matchResult.room_code,
+              gameType,
+              matchType,
+              players: match.map(p => ({ id: p.user_id, username: p.username, elo: p.elo_rating })),
+            });
+            // Immediately emit match-accepted (auto-accept)
+            console.log(`[SOCKET EMIT] Emitting match-accepted to ${player.username} on socket ${socketId}`);
+            io.to(socketId).emit('match-accepted', {
+              sessionId: matchResult.session_id,
+              roomCode: matchResult.room_code,
+              gameType,
+              matchType,
+              players: match.map(p => ({ id: p.user_id, username: p.username, elo: p.elo_rating })),
             });
           }
         }

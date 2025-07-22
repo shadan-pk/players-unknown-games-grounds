@@ -224,7 +224,7 @@ io.use(async (socket, next) => {
   }
 });
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   const { userId, username } = socket.data;
   
   console.log(`[SOCKET] User ${username} (${userId}) connected: ${socket.id}`);
@@ -233,11 +233,16 @@ io.on('connection', (socket) => {
   connectedUsers.set(socket.id, { socketId: socket.id, userId, username });
   userSockets.set(userId, socket.id);
 
+  // Add this line to update Redis with the latest socket ID:
+  await redis.setEx(`socket:${userId}`, 300, socket.id);
+
   socket.emit('authenticated', { 
     success: true, 
     user: { id: userId, username },
     message: 'Connected to PUGG servers'
   });
+
+  socket.emit('test-event', { message: 'Hello from backend!' });
 
   // Matchmaking events
   socket.on('join-queue', async (data) => {
@@ -274,7 +279,7 @@ io.on('connection', (socket) => {
           // Try to process queue for matches if we have enough players
           if (updatedStatus.playersInQueue >= 2) {
             console.log(`[MATCHMAKING] Attempting to create match - ${updatedStatus.playersInQueue} players in queue`);
-            await MatchmakingService.processQueue(gameType, matchType);
+            await MatchmakingService.processQueue(io, gameType, matchType);
           }
         } catch (error) {
           console.error('[SOCKET] Error updating queue status:', error);
@@ -304,19 +309,6 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('[SOCKET] Error leaving queue:', error);
     }
-  });
-
-  socket.on('accept-match', async () => {
-    console.log(`[SOCKET] ${username} accepted match`);
-    socket.emit('match-accepted', {
-      sessionId: `session_${Date.now()}`,
-      roomCode: 'ABC123',
-      gameType: 'tictactoe',
-      players: [
-        { id: userId, username: username, elo: 1200 }
-      ],
-      matchType: 'casual'
-    });
   });
 
   // Handle disconnect

@@ -67,22 +67,6 @@ const GameLobby: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-      {/* Header */}
-      {/* <header className="border-b border-slate-700 px-4 py-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-white">PUGG</h1>
-            <p className="text-gray-400">Player's Unknown Games Grounds</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-300">Welcome, {user?.username}!</span>
-            <button onClick={logout} className="btn btn-outline btn-sm">
-              Logout
-            </button>
-          </div>
-        </div>
-      </header> */}
-
       <div className="max-w-7xl mx-auto px-4 py-8">
         {!currentRoom ? (
           <div>

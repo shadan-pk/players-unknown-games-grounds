@@ -27,5 +27,6 @@ export interface User {
     gameType: string;
     players: Player[];
     status: 'waiting' | 'playing' | 'finished';
+    matchType: 'casual' | 'ranked';
   }
   
